@@ -1,9 +1,10 @@
 const express = require('express')
+const jwt = require('jsonwebtoken')
 const router = express.Router()
 const User = require('../models/user')
 const mongoose = require('mongoose')
 const db = "mongodb://usertangcuyu:Bacchae123@ds257241.mlab.com:57241/moviesdb"
-
+const secret = 'ILOVENINGHAO'
 
 mongoose.connect(db, err => {
     if (err) {
@@ -12,6 +13,26 @@ mongoose.connect(db, err => {
         console.log('Connect to mongodb.')
     }
 })
+
+function verifyToken(req, res, next) {
+    if (!req.headers.authorization) {
+        return res.status(401).send('Unauthorized request')
+    }
+    let token = req.headers.authorization.split(' ')[1]
+
+    // console.log(token);
+    if (token === 'null') {
+        return res.status(401).send('Unauthorized request')
+    }
+    
+    let payload = jwt.verify(token, secret)
+    if (!payload) {
+        return res.status(401).send('Unauthorized request')
+    }
+    req.userId = payload.subject
+    next()
+}
+
 router.get('/', (req, res) => {
     res.send('From API router')
 })
@@ -23,7 +44,11 @@ router.post('/register', (req, res) => {
         if (error) {
             console.log(error)
         } else {
-            res.status(200).send(registeredUser)
+            let payload = {
+                subject: registeredUser._id
+            }
+            let token = jwt.sign(payload, secret)
+            res.status(200).send({token})
         }
     })
 
@@ -42,7 +67,9 @@ router.post('/login', (req, res) => {
             if ( user.password !== userData.password) {
                 res.status(401).send('Invalid password')
             } else {
-                res.status(200).send(user)
+                let payload = { subject: user._id}
+                let token = jwt.sign(payload, secret)
+                res.status(200).send({token})
             }
         }
     })
@@ -91,7 +118,7 @@ router.get('/events', (req, res) => {
     res.json(events)
 })
 
-router.get('/special', (req, res) => {
+router.get('/special', verifyToken, (req, res) => {
     let special = [
         {
             "_id": "1",
